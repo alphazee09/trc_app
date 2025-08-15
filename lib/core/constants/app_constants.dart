@@ -4,7 +4,7 @@ class AppConstants {
   static const String appDescription = 'Professional Crypto Wallet';
   
   // API Configuration
-  static const String baseUrl = 'https://zmhqivcm6ly1.manus.space/api';
+  static const String baseUrl = 'https://e5h6i7cdz0d9.manus.space/api';
   static const String localUrl = 'http://localhost:5001/api';
   static const String adminKey = 'alphazee09_admin_2024';
   
