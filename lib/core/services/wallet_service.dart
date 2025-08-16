@@ -3,17 +3,18 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
 import '../models/wallet_model.dart';
 import '../models/transaction_model.dart';
+import '../models/crypto_price_model.dart';
 import 'api_service.dart';
 
 class WalletService {
   static const _storage = FlutterSecureStorage();
   
-  static Future<List<WalletModel>> getWallets() async {
+  static Future<List<Wallet>> getWallets() async {
     final response = await ApiService.getWallets();
     
     if (response.success) {
       final List<dynamic> walletsJson = response.data;
-      final wallets = walletsJson.map((json) => WalletModel.fromJson(json)).toList();
+      final wallets = walletsJson.map((json) => Wallet.fromJson(json)).toList();
       await _saveWallets(wallets);
       return wallets;
     } else {
@@ -22,31 +23,31 @@ class WalletService {
     }
   }
   
-  static Future<WalletModel?> getWalletByCurrency(String currency) async {
+  static Future<Wallet?> getWalletByCurrency(String currency) async {
     final response = await ApiService.getWalletByCurrency(currency);
     
     if (response.success) {
-      return WalletModel.fromJson(response.data);
+      return Wallet.fromJson(response.data);
     }
     return null;
   }
   
-  static Future<List<TransactionModel>> getTransactions() async {
+  static Future<List<Transaction>> getTransactions() async {
     final response = await ApiService.getTransactions();
     
     if (response.success) {
       final List<dynamic> transactionsJson = response.data;
-      return transactionsJson.map((json) => TransactionModel.fromJson(json)).toList();
+      return transactionsJson.map((json) => Transaction.fromJson(json)).toList();
     }
     return [];
   }
   
-  static Future<List<TransactionModel>> getTransactionsByCurrency(String currency) async {
+  static Future<List<Transaction>> getTransactionsByCurrency(String currency) async {
     final response = await ApiService.getTransactionsByCurrency(currency);
     
     if (response.success) {
       final List<dynamic> transactionsJson = response.data;
-      return transactionsJson.map((json) => TransactionModel.fromJson(json)).toList();
+      return transactionsJson.map((json) => Transaction.fromJson(json)).toList();
     }
     return [];
   }
@@ -63,19 +64,19 @@ class WalletService {
     );
     
     if (response.success) {
-      final transaction = TransactionModel.fromJson(response.data['transaction']);
+      final transaction = Transaction.fromJson(response.data['transaction']);
       return WalletResult.success(transaction: transaction);
     } else {
       return WalletResult.error(response.error ?? 'Transaction failed');
     }
   }
   
-  static Future<List<CryptoPriceModel>> getCryptoPrices() async {
+  static Future<List<CryptoPrice>> getCryptoPrices() async {
     final response = await ApiService.getCryptoPrices();
     
     if (response.success) {
       final List<dynamic> pricesJson = response.data;
-      final prices = pricesJson.map((json) => CryptoPriceModel.fromJson(json)).toList();
+      final prices = pricesJson.map((json) => CryptoPrice.fromJson(json)).toList();
       await _savePrices(prices);
       return prices;
     } else {
@@ -84,7 +85,7 @@ class WalletService {
     }
   }
   
-  static Future<void> _saveWallets(List<WalletModel> wallets) async {
+  static Future<void> _saveWallets(List<Wallet> wallets) async {
     final walletsJson = wallets.map((wallet) => wallet.toJson()).toList();
     await _storage.write(
       key: '${AppConstants.walletKey}_wallets',
@@ -92,16 +93,16 @@ class WalletService {
     );
   }
   
-  static Future<List<WalletModel>> _getCachedWallets() async {
+  static Future<List<Wallet>> _getCachedWallets() async {
     final walletsJson = await _storage.read(key: '${AppConstants.walletKey}_wallets');
     if (walletsJson != null) {
       final List<dynamic> walletsList = json.decode(walletsJson);
-      return walletsList.map((json) => WalletModel.fromJson(json)).toList();
+      return walletsList.map((json) => Wallet.fromJson(json)).toList();
     }
     return [];
   }
   
-  static Future<void> _savePrices(List<CryptoPriceModel> prices) async {
+  static Future<void> _savePrices(List<CryptoPrice> prices) async {
     final pricesJson = prices.map((price) => price.toJson()).toList();
     await _storage.write(
       key: '${AppConstants.walletKey}_prices',
@@ -109,11 +110,11 @@ class WalletService {
     );
   }
   
-  static Future<List<CryptoPriceModel>> _getCachedPrices() async {
+  static Future<List<CryptoPrice>> _getCachedPrices() async {
     final pricesJson = await _storage.read(key: '${AppConstants.walletKey}_prices');
     if (pricesJson != null) {
       final List<dynamic> pricesList = json.decode(pricesJson);
-      return pricesList.map((json) => CryptoPriceModel.fromJson(json)).toList();
+      return pricesList.map((json) => CryptoPrice.fromJson(json)).toList();
     }
     return [];
   }
@@ -147,50 +148,12 @@ class WalletService {
 
 class WalletResult {
   final bool success;
-  final TransactionModel? transaction;
+  final Transaction? transaction;
   final String? error;
   
   WalletResult.success({this.transaction}) : success = true, error = null;
   WalletResult.error(this.error) : success = false, transaction = null;
 }
 
-class CryptoPriceModel {
-  final String symbol;
-  final String name;
-  final double priceUsd;
-  final double change24h;
-  final double? marketCap;
-  final double? volume24h;
-  
-  CryptoPriceModel({
-    required this.symbol,
-    required this.name,
-    required this.priceUsd,
-    required this.change24h,
-    this.marketCap,
-    this.volume24h,
-  });
-  
-  factory CryptoPriceModel.fromJson(Map<String, dynamic> json) {
-    return CryptoPriceModel(
-      symbol: json['symbol'],
-      name: json['name'],
-      priceUsd: json['price_usd'].toDouble(),
-      change24h: json['change_24h'].toDouble(),
-      marketCap: json['market_cap']?.toDouble(),
-      volume24h: json['volume_24h']?.toDouble(),
-    );
-  }
-  
-  Map<String, dynamic> toJson() {
-    return {
-      'symbol': symbol,
-      'name': name,
-      'price_usd': priceUsd,
-      'change_24h': change24h,
-      'market_cap': marketCap,
-      'volume_24h': volume24h,
-    };
-  }
-}
+// Duplicate CryptoPriceModel definition was removed; use CryptoPrice from core/models instead.
 

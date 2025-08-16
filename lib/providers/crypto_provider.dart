@@ -48,6 +48,30 @@ class CryptoProvider extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  // Convenience alias used by some legacy screens
+  Future<void> loadPrices() => loadCryptoPrices();
+
+  // Aggregate 24h volume across all tracked assets
+  double get total24hVolume {
+    return _prices.fold(0.0, (sum, price) => sum + (price.volume24h ?? 0.0));
+  }
+
+  // Human-readable volume formatting (e.g. $1.2B, $450M)
+  String formatVolume(double? volume) {
+    if (volume == null) return 'N/A';
+    if (volume >= 1e12) {
+      return '\$${(volume / 1e12).toStringAsFixed(2)}T';
+    } else if (volume >= 1e9) {
+      return '\$${(volume / 1e9).toStringAsFixed(2)}B';
+    } else if (volume >= 1e6) {
+      return '\$${(volume / 1e6).toStringAsFixed(2)}M';
+    } else if (volume >= 1e3) {
+      return '\$${(volume / 1e3).toStringAsFixed(2)}K';
+    } else {
+      return '\$${volume.toStringAsFixed(0)}';
+    }
+  }
   
   Future<void> refreshPrices() async {
     try {
@@ -88,6 +112,22 @@ class CryptoProvider extends ChangeNotifier {
     final sorted = List<CryptoPrice>.from(_prices);
     sorted.sort((a, b) => a.change24h.compareTo(b.change24h));
     return sorted.take(5).toList();
+  }
+
+  // Utility: Format large market cap values into human-readable strings
+  String formatMarketCap(double? marketCap) {
+    if (marketCap == null) return 'N/A';
+    if (marketCap >= 1e12) {
+      return '\$${(marketCap / 1e12).toStringAsFixed(2)}T';
+    } else if (marketCap >= 1e9) {
+      return '\$${(marketCap / 1e9).toStringAsFixed(2)}B';
+    } else if (marketCap >= 1e6) {
+      return '\$${(marketCap / 1e6).toStringAsFixed(2)}M';
+    } else if (marketCap >= 1e3) {
+      return '\$${(marketCap / 1e3).toStringAsFixed(2)}K';
+    } else {
+      return '\$${marketCap.toStringAsFixed(0)}';
+    }
   }
 
   double get totalMarketCap {

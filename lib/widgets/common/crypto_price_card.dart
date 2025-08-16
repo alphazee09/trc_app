@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/services/wallet_service.dart';
+import '../../core/models/crypto_price_model.dart';
 
 class CryptoPriceCard extends StatelessWidget {
-  final CryptoPriceModel price;
+  final CryptoPrice price;
   final VoidCallback? onTap;
 
   const CryptoPriceCard({

@@ -3,7 +3,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/models/wallet_model.dart';
 
 class WalletBalanceCard extends StatelessWidget {
-  final WalletModel wallet;
+  final Wallet wallet;
   final double? usdValue;
   final VoidCallback? onTap;
 
