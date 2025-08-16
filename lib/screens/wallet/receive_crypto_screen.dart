@@ -17,7 +17,7 @@ class ReceiveCryptoScreen extends StatefulWidget {
 
 class _ReceiveCryptoScreenState extends State<ReceiveCryptoScreen> {
   String _selectedCurrency = 'BTC';
-  WalletModel? _selectedWallet;
+  Wallet? _selectedWallet;
 
   @override
   void initState() {

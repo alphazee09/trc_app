@@ -81,5 +81,10 @@ class Wallet {
         return balance.toStringAsFixed(8);
     }
   }
+
+  String get shortAddress {
+    if (address.length <= 16) return address;
+    return '${address.substring(0, 8)}...${address.substring(address.length - 8)}';
+  }
 }
 

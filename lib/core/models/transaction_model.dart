@@ -9,6 +9,7 @@ class Transaction {
   final String txHash;
   final int? blockNumber;
   final String? blockHash;
+  final int? gasUsed;
   final String status;
   final String transactionType;
   final DateTime createdAt;
@@ -25,6 +26,7 @@ class Transaction {
     required this.txHash,
     this.blockNumber,
     this.blockHash,
+    this.gasUsed,
     required this.status,
     required this.transactionType,
     required this.createdAt,
@@ -43,6 +45,7 @@ class Transaction {
       txHash: json['tx_hash'],
       blockNumber: json['block_number'],
       blockHash: json['block_hash'],
+      gasUsed: json['gas_used'],
       status: json['status'],
       transactionType: json['transaction_type'],
       createdAt: DateTime.parse(json['created_at']),
@@ -62,6 +65,7 @@ class Transaction {
       'tx_hash': txHash,
       'block_number': blockNumber,
       'block_hash': blockHash,
+      'gas_used': gasUsed,
       'status': status,
       'transaction_type': transactionType,
       'created_at': createdAt.toIso8601String(),
@@ -80,6 +84,7 @@ class Transaction {
     String? txHash,
     int? blockNumber,
     String? blockHash,
+    int? gasUsed,
     String? status,
     String? transactionType,
     DateTime? createdAt,
@@ -96,6 +101,7 @@ class Transaction {
       txHash: txHash ?? this.txHash,
       blockNumber: blockNumber ?? this.blockNumber,
       blockHash: blockHash ?? this.blockHash,
+      gasUsed: gasUsed ?? this.gasUsed,
       status: status ?? this.status,
       transactionType: transactionType ?? this.transactionType,
       createdAt: createdAt ?? this.createdAt,
@@ -125,6 +131,48 @@ class Transaction {
   String get shortTxHash {
     if (txHash.length <= 16) return txHash;
     return '${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 8)}';
+  }
+
+  String get currencyIcon {
+    switch (currency.toUpperCase()) {
+      case 'BTC':
+        return '₿';
+      case 'ETH':
+        return 'Ξ';
+      case 'USDT':
+        return '₮';
+      default:
+        return '₿';
+    }
+  }
+
+  String get statusDisplayText {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return 'Confirmed';
+      case 'pending':
+        return 'Pending';
+      case 'failed':
+        return 'Failed';
+      default:
+        return status;
+    }
+  }
+
+  String get typeDisplayText {
+    return isSent ? 'Sent' : 'Received';
+  }
+
+  String get explorerUrl {
+    switch (currency.toUpperCase()) {
+      case 'BTC':
+        return 'https://www.blockchain.com/btc/tx/$txHash';
+      case 'ETH':
+      case 'USDT':
+        return 'https://etherscan.io/tx/$txHash';
+      default:
+        return '';
+    }
   }
 }
 

@@ -4,7 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/crypto_provider.dart';
 import '../../widgets/common/crypto_price_card.dart';
-import '../../core/services/wallet_service.dart';
+import '../../core/models/crypto_price_model.dart';
 
 class MarketsScreen extends StatefulWidget {
   const MarketsScreen({super.key});
@@ -28,7 +28,7 @@ class _MarketsScreenState extends State<MarketsScreen>
 
   Future<void> _loadData() async {
     final cryptoProvider = Provider.of<CryptoProvider>(context, listen: false);
-    await cryptoProvider.loadPrices();
+    await cryptoProvider.loadCryptoPrices();
   }
 
   @override
@@ -200,7 +200,7 @@ class _MarketsScreenState extends State<MarketsScreen>
     );
   }
 
-  Widget _buildPriceList(List<CryptoPriceModel> prices) {
+  Widget _buildPriceList(List<CryptoPrice> prices) {
     return RefreshIndicator(
       onRefresh: _loadData,
       child: ListView.builder(
@@ -222,7 +222,7 @@ class _MarketsScreenState extends State<MarketsScreen>
     );
   }
 
-  void _showPriceDetails(CryptoPriceModel price) {
+  void _showPriceDetails(CryptoPrice price) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -231,7 +231,7 @@ class _MarketsScreenState extends State<MarketsScreen>
     );
   }
 
-  Widget _buildPriceDetailsSheet(CryptoPriceModel price) {
+  Widget _buildPriceDetailsSheet(CryptoPrice price) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
       decoration: const BoxDecoration(

@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/models/transaction_model.dart';
 
 class TransactionDetailsScreen extends StatelessWidget {
-  final TransactionModel transaction;
+  final Transaction transaction;
 
   const TransactionDetailsScreen({
     super.key,
