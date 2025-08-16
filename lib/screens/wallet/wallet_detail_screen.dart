@@ -10,8 +10,11 @@ import '../../core/services/biometric_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/crypto_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../widgets/common/crypto_icon.dart';
+import '../../widgets/common/animated_background.dart';
+import '../../widgets/common/qr_code_widget.dart';
 import 'send_crypto_screen.dart';
 import 'receive_crypto_screen.dart';
 import 'transaction_details_screen.dart';
@@ -169,6 +172,16 @@ class _WalletDetailScreenState extends State<WalletDetailScreen>
   }
 
   Future<void> _navigateToSend() async {
+    // Check KYC verification first
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    
+    if (user == null || !user.isVerified) {
+      _showKYCRequiredDialog();
+      return;
+    }
+
+    // Check biometric authentication if enabled
     final canUseFingerprint = await BiometricService.canUseFingerprint();
     
     if (canUseFingerprint) {
@@ -177,8 +190,16 @@ class _WalletDetailScreenState extends State<WalletDetailScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result.error ?? 'Authentication failed'),
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(result.error ?? 'Authentication failed'),
+                ],
+              ),
               backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
@@ -189,8 +210,24 @@ class _WalletDetailScreenState extends State<WalletDetailScreen>
     if (mounted) {
       final result = await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => SendCryptoScreen(wallet: widget.wallet),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => 
+              SendCryptoScreen(wallet: widget.wallet),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(0.0, 1.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
+
+            var tween = Tween(begin: begin, end: end).chain(
+              CurveTween(curve: curve),
+            );
+
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 400),
         ),
       );
 
@@ -200,13 +237,114 @@ class _WalletDetailScreenState extends State<WalletDetailScreen>
     }
   }
 
-  void _navigateToReceive() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReceiveCryptoScreen(wallet: widget.wallet),
+  void _showKYCRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.verified_user_outlined,
+              color: Colors.orange,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'KYC Verification Required',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'To send cryptocurrency, you need to complete KYC verification first.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You can still receive crypto without KYC verification.',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/kyc');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Start KYC',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _navigateToReceive() {
+    QRCodeBottomSheet.show(
+      context,
+      address: widget.wallet.address,
+      currency: widget.wallet.currency,
+      networkInfo: _getNetworkInfo(widget.wallet.currency),
+    );
+  }
+
+  String _getNetworkInfo(String currency) {
+    switch (currency.toUpperCase()) {
+      case 'BTC':
+        return 'Bitcoin Network';
+      case 'ETH':
+        return 'Ethereum Network';
+      case 'USDT':
+        return 'Ethereum Network (ERC-20)';
+      default:
+        return 'Blockchain Network';
+    }
   }
 
   Widget _buildWalletInfo() {

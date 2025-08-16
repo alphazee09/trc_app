@@ -10,6 +10,8 @@ import '../../widgets/common/custom_app_bar.dart';
 import '../../widgets/common/crypto_price_card.dart';
 import '../../widgets/common/wallet_balance_card.dart';
 import '../../widgets/common/quick_action_button.dart';
+import '../../widgets/common/animated_background.dart';
+import '../../widgets/common/fingerprint_prompt_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +59,16 @@ class _HomeScreenState extends State<HomeScreen>
     
     // Start auto-refresh for crypto prices
     cryptoProvider.startAutoRefresh();
+    
+    // Show fingerprint prompt if available but not enabled
+    if (mounted) {
+      // Delay to ensure UI is ready
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          FingerprintPromptDialog.showIfAvailable(context);
+        }
+      });
+    }
   }
 
   @override
@@ -70,10 +82,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.backgroundGradient,
-        ),
+      body: AnimatedBackground(
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _animationController,

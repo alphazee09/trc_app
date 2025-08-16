@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 import '../../core/models/user_model.dart';
 import '../../core/services/bazari_api_service.dart';
 import '../../core/services/biometric_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/services/token_manager.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/common/animated_background.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../widgets/common/loading_overlay.dart';
+import 'help_support_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +26,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoading = false;
   String _biometricStatus = '';
   User? _currentUser;
+  
+  // Notification settings
+  bool _priceAlertsEnabled = true;
+  bool _transactionAlertsEnabled = true;
+  bool _securityAlertsEnabled = true;
+  bool _marketNewsEnabled = false;
 
   @override
   void initState() {
@@ -40,6 +49,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _fingerprintAvailable = await BiometricService.isFingerprintAvailable();
       _fingerprintEnabled = await BiometricService.isFingerprintEnabled();
       _biometricStatus = await BiometricService.getBiometricStatusMessage();
+
+      // Load notification settings
+      _priceAlertsEnabled = await NotificationService.isPriceAlertsEnabled();
+      _transactionAlertsEnabled = await NotificationService.isTransactionAlertsEnabled();
+      _securityAlertsEnabled = await NotificationService.isSecurityAlertsEnabled();
+      _marketNewsEnabled = await NotificationService.isMarketNewsEnabled();
 
       // Load user profile
       _currentUser = await BazariApiService.getUserProfile();
@@ -211,16 +226,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
       ),
       body: LoadingOverlay(
         isLoading: _isLoading,
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: AppTheme.backgroundGradient,
-          ),
+        child: AnimatedBackground(
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -233,6 +252,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Security Settings
               _buildSectionTitle('Security'),
               _buildSecuritySettings(),
+              const SizedBox(height: 20),
+
+              // Notification Settings
+              _buildSectionTitle('Notifications'),
+              _buildNotificationSettings(),
               const SizedBox(height: 20),
 
               // App Settings
@@ -388,6 +412,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildNotificationSettings() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          _buildSettingItem(
+            title: 'Price Alerts',
+            subtitle: 'Get notified about significant price changes',
+            trailing: Switch(
+              value: _priceAlertsEnabled,
+              onChanged: _togglePriceAlerts,
+              activeColor: AppTheme.primaryColor,
+            ),
+            icon: Icons.trending_up,
+          ),
+          _buildDivider(),
+          _buildSettingItem(
+            title: 'Transaction Alerts',
+            subtitle: 'Notifications for incoming/outgoing transactions',
+            trailing: Switch(
+              value: _transactionAlertsEnabled,
+              onChanged: _toggleTransactionAlerts,
+              activeColor: AppTheme.primaryColor,
+            ),
+            icon: Icons.swap_horiz,
+          ),
+          _buildDivider(),
+          _buildSettingItem(
+            title: 'Security Alerts',
+            subtitle: 'Important security-related notifications',
+            trailing: Switch(
+              value: _securityAlertsEnabled,
+              onChanged: _toggleSecurityAlerts,
+              activeColor: AppTheme.primaryColor,
+            ),
+            icon: Icons.security,
+          ),
+          _buildDivider(),
+          _buildSettingItem(
+            title: 'Market News',
+            subtitle: 'Latest cryptocurrency market updates',
+            trailing: Switch(
+              value: _marketNewsEnabled,
+              onChanged: _toggleMarketNews,
+              activeColor: AppTheme.primaryColor,
+            ),
+            icon: Icons.newspaper,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAppSettings() {
     return Container(
       decoration: BoxDecoration(
@@ -398,19 +479,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildSettingItem(
-            title: 'Notifications',
-            subtitle: 'Manage notification preferences',
-            trailing: const Icon(
-              Icons.chevron_right,
-              color: Colors.white54,
-            ),
-            icon: Icons.notifications,
-            onTap: () {
-              // TODO: Navigate to notifications settings
-            },
-          ),
-          _buildDivider(),
-          _buildSettingItem(
             title: 'Language',
             subtitle: 'English (US)',
             trailing: const Icon(
@@ -419,7 +487,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             icon: Icons.language,
             onTap: () {
-              // TODO: Navigate to language settings
+              _showLanguageSelection();
+            },
+          ),
+          _buildDivider(),
+          _buildSettingItem(
+            title: 'Currency Display',
+            subtitle: 'USD (\$)',
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: Colors.white54,
+            ),
+            icon: Icons.attach_money,
+            onTap: () {
+              _showCurrencySelection();
             },
           ),
         ],
@@ -445,7 +526,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             icon: Icons.help,
             onTap: () {
-              // TODO: Navigate to help screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const HelpSupportScreen(),
+                ),
+              );
             },
           ),
           _buildDivider(),
@@ -525,6 +611,169 @@ class _SettingsScreenState extends State<SettingsScreen> {
       color: Colors.white.withOpacity(0.1),
       indent: 72,
       endIndent: 16,
+    );
+  }
+
+  // Notification toggle methods
+  Future<void> _togglePriceAlerts(bool value) async {
+    setState(() {
+      _priceAlertsEnabled = value;
+    });
+    await NotificationService.setPriceAlertsEnabled(value);
+    
+    if (value) {
+      await NotificationService.sendTestNotification(
+        'Price Alerts Enabled',
+        'You will now receive notifications about significant price changes.',
+      );
+    }
+  }
+
+  Future<void> _toggleTransactionAlerts(bool value) async {
+    setState(() {
+      _transactionAlertsEnabled = value;
+    });
+    await NotificationService.setTransactionAlertsEnabled(value);
+    
+    if (value) {
+      await NotificationService.sendTestNotification(
+        'Transaction Alerts Enabled',
+        'You will receive notifications for all your transactions.',
+      );
+    }
+  }
+
+  Future<void> _toggleSecurityAlerts(bool value) async {
+    setState(() {
+      _securityAlertsEnabled = value;
+    });
+    await NotificationService.setSecurityAlertsEnabled(value);
+    
+    if (value) {
+      await NotificationService.sendTestNotification(
+        'Security Alerts Enabled',
+        'You will receive important security notifications.',
+      );
+    }
+  }
+
+  Future<void> _toggleMarketNews(bool value) async {
+    setState(() {
+      _marketNewsEnabled = value;
+    });
+    await NotificationService.setMarketNewsEnabled(value);
+    
+    if (value) {
+      await NotificationService.sendTestNotification(
+        'Market News Enabled',
+        'Stay updated with the latest cryptocurrency market news.',
+      );
+    }
+  }
+
+  void _showLanguageSelection() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Text(
+          'Select Language',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildLanguageOption('English (US)', true),
+            _buildLanguageOption('Spanish (ES)', false),
+            _buildLanguageOption('French (FR)', false),
+            _buildLanguageOption('German (DE)', false),
+            _buildLanguageOption('Chinese (CN)', false),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(String language, bool isSelected) {
+    return ListTile(
+      title: Text(
+        language,
+        style: const TextStyle(color: Colors.white),
+      ),
+      trailing: isSelected
+          ? Icon(Icons.check, color: AppTheme.primaryColor)
+          : null,
+      onTap: () {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Language changed to $language'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCurrencySelection() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Text(
+          'Display Currency',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildCurrencyOption('USD (\$)', true),
+            _buildCurrencyOption('EUR (€)', false),
+            _buildCurrencyOption('GBP (£)', false),
+            _buildCurrencyOption('JPY (¥)', false),
+            _buildCurrencyOption('BTC (₿)', false),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrencyOption(String currency, bool isSelected) {
+    return ListTile(
+      title: Text(
+        currency,
+        style: const TextStyle(color: Colors.white),
+      ),
+      trailing: isSelected
+          ? Icon(Icons.check, color: AppTheme.primaryColor)
+          : null,
+      onTap: () {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Display currency changed to $currency'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+      },
     );
   }
 }

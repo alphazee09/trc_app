@@ -124,4 +124,17 @@ class CryptoPrice {
         return symbol.substring(0, 1).toUpperCase();
     }
   }
+
+  String get displayName {
+    switch (symbol.toUpperCase()) {
+      case 'BTC':
+        return 'Bitcoin';
+      case 'ETH':
+        return 'Ethereum';
+      case 'USDT':
+        return 'USDT ERC-20';
+      default:
+        return name;
+    }
+  }
 }
