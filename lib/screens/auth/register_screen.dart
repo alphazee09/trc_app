@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/bazari_api_service.dart';
 import '../../providers/auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -66,21 +67,34 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
     
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    final success = await authProvider.register(
-      username: _usernameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      firstName: _firstNameController.text.trim().isEmpty ? null : _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim().isEmpty ? null : _lastNameController.text.trim(),
-      phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-    );
-    
-    if (success && mounted) {
-      Navigator.of(context).pushReplacementNamed('/home');
-    } else if (mounted) {
-      _showErrorSnackBar(authProvider.error ?? 'Registration failed');
+    try {
+      final result = await BazariApiService.register(
+        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        firstName: _firstNameController.text.trim().isEmpty ? null : _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim().isEmpty ? null : _lastNameController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      );
+      
+      if (mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.setUser(result['user']);
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully! Welcome to Bazari Wallet!'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+        
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar(e.toString());
+      }
     }
   }
 

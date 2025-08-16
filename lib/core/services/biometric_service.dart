@@ -1,6 +1,9 @@
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
+import 'token_manager.dart';
+import 'bazari_api_service.dart';
+
 class BiometricService {
   static final LocalAuthentication _localAuth = LocalAuthentication();
   
@@ -19,6 +22,24 @@ class BiometricService {
       return await _localAuth.getAvailableBiometrics();
     } catch (e) {
       return [];
+    }
+  }
+
+  static Future<bool> isFingerprintAvailable() async {
+    try {
+      final biometrics = await getAvailableBiometrics();
+      return biometrics.contains(BiometricType.fingerprint);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> isFaceIDAvailable() async {
+    try {
+      final biometrics = await getAvailableBiometrics();
+      return biometrics.contains(BiometricType.face);
+    } catch (e) {
+      return false;
     }
   }
   
@@ -52,6 +73,111 @@ class BiometricService {
       return BiometricResult.error('An unexpected error occurred: ${e.toString()}');
     }
   }
+
+  /// Authenticate for app login
+  static Future<BiometricResult> authenticateForLogin() async {
+    return await authenticate(
+      localizedReason: 'Use your fingerprint to sign in to Bazari Wallet',
+      biometricOnly: true,
+    );
+  }
+
+  /// Authenticate for transaction
+  static Future<BiometricResult> authenticateForTransaction({
+    required String currency,
+    required double amount,
+  }) async {
+    return await authenticate(
+      localizedReason: 'Confirm transaction: Send $amount $currency',
+      biometricOnly: true,
+    );
+  }
+
+  /// Authenticate for wallet access
+  static Future<BiometricResult> authenticateForWallet() async {
+    return await authenticate(
+      localizedReason: 'Access your wallet with your fingerprint',
+      biometricOnly: true,
+    );
+  }
+
+  /// Enable fingerprint authentication
+  static Future<BiometricResult> enableFingerprint() async {
+    try {
+      // Check if biometric is available
+      final bool isAvailable = await isAvailable();
+      if (!isAvailable) {
+        return BiometricResult.error('Biometric authentication is not available on this device');
+      }
+
+      // Check if fingerprint is specifically available
+      final bool fingerprintAvailable = await isFingerprintAvailable();
+      if (!fingerprintAvailable) {
+        return BiometricResult.error('Fingerprint authentication is not available on this device');
+      }
+
+      // Test authentication first
+      final authResult = await authenticate(
+        localizedReason: 'Enable fingerprint authentication for Bazari Wallet',
+        biometricOnly: true,
+      );
+
+      if (!authResult.success) {
+        return authResult;
+      }
+
+      // Update on server
+      try {
+        await BazariApiService.updateUserProfile(fingerprintEnabled: true);
+      } catch (e) {
+        // If API call fails, still enable locally
+        print('Failed to update fingerprint setting on server: $e');
+      }
+
+      // Store locally
+      await TokenManager.setFingerprintEnabled(true);
+
+      return BiometricResult.success();
+    } catch (e) {
+      return BiometricResult.error('Failed to enable fingerprint: ${e.toString()}');
+    }
+  }
+
+  /// Disable fingerprint authentication
+  static Future<BiometricResult> disableFingerprint() async {
+    try {
+      // Update on server
+      try {
+        await BazariApiService.updateUserProfile(fingerprintEnabled: false);
+      } catch (e) {
+        // If API call fails, still disable locally
+        print('Failed to update fingerprint setting on server: $e');
+      }
+
+      // Remove from local storage
+      await TokenManager.setFingerprintEnabled(false);
+
+      return BiometricResult.success();
+    } catch (e) {
+      return BiometricResult.error('Failed to disable fingerprint: ${e.toString()}');
+    }
+  }
+
+  /// Check if fingerprint is enabled for the user
+  static Future<bool> isFingerprintEnabled() async {
+    try {
+      return await TokenManager.isFingerprintEnabled();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if user can use fingerprint (available + enabled)
+  static Future<bool> canUseFingerprint() async {
+    final bool isAvailable = await isFingerprintAvailable();
+    final bool isEnabled = await isFingerprintEnabled();
+    return isAvailable && isEnabled;
+  }
   
   static Future<bool> stopAuthentication() async {
     try {
@@ -66,13 +192,13 @@ class BiometricService {
       case 'NotAvailable':
         return 'Biometric authentication is not available on this device';
       case 'NotEnrolled':
-        return 'No biometric credentials are enrolled on this device';
+        return 'No biometric credentials are enrolled on this device. Please set up fingerprint or face recognition in your device settings.';
       case 'LockedOut':
-        return 'Biometric authentication is temporarily locked out';
+        return 'Biometric authentication is temporarily locked out. Please try again later.';
       case 'PermanentlyLockedOut':
-        return 'Biometric authentication is permanently locked out';
+        return 'Biometric authentication is permanently locked out. Please use your device passcode.';
       case 'UserCancel':
-        return 'User cancelled biometric authentication';
+        return 'Authentication was cancelled';
       case 'UserFallback':
         return 'User chose to use fallback authentication';
       case 'SystemCancel':
@@ -81,8 +207,14 @@ class BiometricService {
         return 'Invalid authentication context';
       case 'NotSupported':
         return 'Biometric authentication is not supported on this device';
+      case 'OtherOperatingSystem':
+        return 'Biometric authentication is not supported on this operating system';
+      case 'PasscodeNotSet':
+        return 'Device passcode is not set. Please set up a passcode in your device settings.';
+      case 'BiometryNotEnrolled':
+        return 'No biometric credentials are enrolled. Please set up fingerprint or face recognition in your device settings.';
       default:
-        return 'Biometric authentication error: ${e.message}';
+        return 'Biometric authentication error: ${e.message ?? 'Unknown error'}';
     }
   }
   
@@ -107,13 +239,35 @@ class BiometricService {
     final biometrics = await getAvailableBiometrics();
     if (biometrics.isEmpty) return 'None';
     
-    // Prioritize face recognition, then fingerprint
-    if (biometrics.contains(BiometricType.face)) {
-      return getBiometricTypeString(BiometricType.face);
-    } else if (biometrics.contains(BiometricType.fingerprint)) {
+    // Prioritize fingerprint, then face recognition
+    if (biometrics.contains(BiometricType.fingerprint)) {
       return getBiometricTypeString(BiometricType.fingerprint);
+    } else if (biometrics.contains(BiometricType.face)) {
+      return getBiometricTypeString(BiometricType.face);
     } else {
       return getBiometricTypeString(biometrics.first);
+    }
+  }
+
+  /// Get a user-friendly message about biometric availability
+  static Future<String> getBiometricStatusMessage() async {
+    final bool isAvailable = await isAvailable();
+    if (!isAvailable) {
+      return 'Biometric authentication is not available on this device';
+    }
+
+    final biometrics = await getAvailableBiometrics();
+    if (biometrics.isEmpty) {
+      return 'No biometric authentication methods are set up on this device';
+    }
+
+    final primaryType = await getPrimaryBiometricType();
+    final isEnabled = await isFingerprintEnabled();
+    
+    if (isEnabled) {
+      return '$primaryType authentication is enabled';
+    } else {
+      return '$primaryType is available but not enabled';
     }
   }
 }
@@ -124,5 +278,10 @@ class BiometricResult {
   
   BiometricResult.success() : success = true, error = null;
   BiometricResult.error(this.error) : success = false;
+
+  @override
+  String toString() {
+    return success ? 'BiometricResult.success' : 'BiometricResult.error($error)';
+  }
 }
 

@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen>
     await Future.wait([
       walletProvider.loadWallets(),
       walletProvider.loadTransactions(),
-      cryptoProvider.loadPrices(),
+      cryptoProvider.loadCryptoPrices(),
     ]);
     
     // Start auto-refresh for crypto prices
@@ -347,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 errorBuilder: (context, error, stackTrace) {
                                   return Center(
                                     child: Text(
-                                      user.initials,
+                                      authProvider.userInitials,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -372,15 +372,15 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(height: 16),
                     
                     // User Info
-                    Text(
-                      user?.fullName ?? 'User',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                                      Text(
+                    authProvider.userDisplayName,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
                     const SizedBox(height: 4),
-                    Text(
-                      '@${user?.username ?? 'username'}',
+                                          Text(
+                        '@${authProvider.user?.username ?? 'username'}',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppTheme.textSecondary,
                       ),
@@ -505,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen>
                         errorBuilder: (context, error, stackTrace) {
                           return Center(
                             child: Text(
-                              user.initials,
+                              authProvider.userInitials,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -518,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen>
                     )
                   : Center(
                       child: Text(
-                        user?.initials ?? 'U',
+                        authProvider.userInitials,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -541,13 +541,21 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   Text(
-                    user?.fullName ?? 'User',
+                    authProvider.userDisplayName,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
+            ),
+            
+            // Settings Icon
+            IconButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/settings');
+              },
+              icon: const Icon(Icons.settings_outlined, size: 28),
             ),
             
             // Notification Icon

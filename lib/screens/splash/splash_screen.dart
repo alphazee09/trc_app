@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/bazari_api_service.dart';
+import '../../core/services/token_manager.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/crypto_provider.dart';
 
@@ -63,9 +65,22 @@ class _SplashScreenState extends State<SplashScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final cryptoProvider = Provider.of<CryptoProvider>(context, listen: false);
     
+    // Check if user is already authenticated
+    bool isAuthenticated = false;
+    try {
+      isAuthenticated = await BazariApiService.isAuthenticated();
+      if (isAuthenticated) {
+        final user = await BazariApiService.getUserProfile();
+        authProvider.setUser(user.toJson());
+      }
+    } catch (e) {
+      // User not authenticated or error occurred
+      isAuthenticated = false;
+    }
+    
     await Future.wait([
       authProvider.initialize(),
-      cryptoProvider.loadPrices(),
+      cryptoProvider.loadCryptoPrices(),
     ]);
     
     // Wait for animations to complete
@@ -73,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen>
     
     // Navigate to appropriate screen
     if (mounted) {
-      if (authProvider.isLoggedIn) {
+      if (isAuthenticated) {
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         Navigator.of(context).pushReplacementNamed('/login');
