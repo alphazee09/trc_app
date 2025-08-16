@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
-import '../../providers/auth_provider.dart';
+import '../../core/services/bazari_api_service.dart';
 import '../../core/services/biometric_service.dart';
+import '../../core/services/token_manager.dart';
+import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -57,11 +59,11 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _checkBiometricAvailability() async {
-    final isAvailable = await BiometricService.isAvailable();
+    final canUseFingerprint = await BiometricService.canUseFingerprint();
     final biometricType = await BiometricService.getPrimaryBiometricType();
     
     setState(() {
-      _biometricAvailable = isAvailable;
+      _biometricAvailable = canUseFingerprint;
       _biometricType = biometricType;
     });
   }
@@ -69,29 +71,53 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    final success = await authProvider.login(
-      username: _usernameController.text.trim(),
-      password: _passwordController.text,
-    );
-    
-    if (success && mounted) {
-      Navigator.of(context).pushReplacementNamed('/home');
-    } else if (mounted) {
-      _showErrorSnackBar(authProvider.error ?? 'Login failed');
+    try {
+      final result = await BazariApiService.login(
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+      );
+      
+      if (mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.setUser(result['user']);
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar(e.toString());
+      }
     }
   }
 
   Future<void> _loginWithBiometric() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    final success = await authProvider.authenticateWithBiometric();
-    
-    if (success && mounted) {
-      Navigator.of(context).pushReplacementNamed('/home');
-    } else if (mounted) {
-      _showErrorSnackBar(authProvider.error ?? 'Biometric authentication failed');
+    try {
+      // First authenticate with biometrics
+      final biometricResult = await BiometricService.authenticateForLogin();
+      
+      if (!biometricResult.success) {
+        _showErrorSnackBar(biometricResult.error ?? 'Biometric authentication failed');
+        return;
+      }
+      
+      // Check if user is already logged in (has valid token)
+      final isAuthenticated = await BazariApiService.isAuthenticated();
+      
+      if (isAuthenticated) {
+        // Get user profile and navigate to home
+        final user = await BazariApiService.getUserProfile();
+        
+        if (mounted) {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          authProvider.setUser(user.toJson());
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        _showErrorSnackBar('Please login with your credentials first to enable biometric authentication');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Biometric authentication failed: $e');
+      }
     }
   }
 

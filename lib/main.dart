@@ -18,11 +18,14 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/wallet/wallet_screen.dart';
+import 'screens/wallet/wallet_detail_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/profile/settings_screen.dart';
 import 'screens/wallet/send_crypto_screen.dart';
 import 'screens/wallet/receive_crypto_screen.dart';
 import 'screens/wallet/transaction_details_screen.dart';
 import 'screens/markets/markets_screen.dart';
+import 'screens/kyc/kyc_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +75,7 @@ class AlphaZee09App extends StatelessWidget {
           '/home': (context) => const HomeScreen(),
           '/wallet': (context) => const WalletScreen(),
           '/profile': (context) => const ProfileScreen(),
+          '/settings': (context) => const SettingsScreen(),
           '/kyc': (context) => const KYCScreen(),
           '/send': (context) => const SendCryptoScreen(),
           '/receive': (context) => const ReceiveCryptoScreen(),

@@ -1,4 +1,4 @@
-class UserModel {
+class User {
   final int id;
   final String username;
   final String email;
@@ -8,10 +8,13 @@ class UserModel {
   final String? profileImage;
   final bool fingerprintEnabled;
   final bool isVerified;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  
-  UserModel({
+  final bool isBlocked;
+  final DateTime? blockedAt;
+  final String? blockedReason;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  User({
     required this.id,
     required this.username,
     required this.email,
@@ -19,14 +22,17 @@ class UserModel {
     this.lastName,
     this.phone,
     this.profileImage,
-    this.fingerprintEnabled = false,
-    this.isVerified = false,
-    this.createdAt,
-    this.updatedAt,
+    required this.fingerprintEnabled,
+    required this.isVerified,
+    required this.isBlocked,
+    this.blockedAt,
+    this.blockedReason,
+    required this.createdAt,
+    required this.updatedAt,
   });
-  
-  factory UserModel.fromJson(Map<String, dynamic> json) {
-    return UserModel(
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
       id: json['id'],
       username: json['username'],
       email: json['email'],
@@ -36,11 +42,14 @@ class UserModel {
       profileImage: json['profile_image'],
       fingerprintEnabled: json['fingerprint_enabled'] ?? false,
       isVerified: json['is_verified'] ?? false,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      isBlocked: json['is_blocked'] ?? false,
+      blockedAt: json['blocked_at'] != null ? DateTime.parse(json['blocked_at']) : null,
+      blockedReason: json['blocked_reason'],
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -52,34 +61,15 @@ class UserModel {
       'profile_image': profileImage,
       'fingerprint_enabled': fingerprintEnabled,
       'is_verified': isVerified,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+      'is_blocked': isBlocked,
+      'blocked_at': blockedAt?.toIso8601String(),
+      'blocked_reason': blockedReason,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
-  
-  String get fullName {
-    if (firstName != null && lastName != null) {
-      return '$firstName $lastName';
-    } else if (firstName != null) {
-      return firstName!;
-    } else if (lastName != null) {
-      return lastName!;
-    } else {
-      return username;
-    }
-  }
-  
-  String get initials {
-    if (firstName != null && lastName != null) {
-      return '${firstName![0].toUpperCase()}${lastName![0].toUpperCase()}';
-    } else if (firstName != null) {
-      return firstName![0].toUpperCase();
-    } else {
-      return username[0].toUpperCase();
-    }
-  }
-  
-  UserModel copyWith({
+
+  User copyWith({
     int? id,
     String? username,
     String? email,
@@ -89,10 +79,13 @@ class UserModel {
     String? profileImage,
     bool? fingerprintEnabled,
     bool? isVerified,
+    bool? isBlocked,
+    DateTime? blockedAt,
+    String? blockedReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return UserModel(
+    return User(
       id: id ?? this.id,
       username: username ?? this.username,
       email: email ?? this.email,
@@ -102,9 +95,23 @@ class UserModel {
       profileImage: profileImage ?? this.profileImage,
       fingerprintEnabled: fingerprintEnabled ?? this.fingerprintEnabled,
       isVerified: isVerified ?? this.isVerified,
+      isBlocked: isBlocked ?? this.isBlocked,
+      blockedAt: blockedAt ?? this.blockedAt,
+      blockedReason: blockedReason ?? this.blockedReason,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+
+  String get fullName {
+    if (firstName != null && lastName != null) {
+      return '$firstName $lastName';
+    } else if (firstName != null) {
+      return firstName!;
+    } else if (lastName != null) {
+      return lastName!;
+    }
+    return username;
   }
 }
 

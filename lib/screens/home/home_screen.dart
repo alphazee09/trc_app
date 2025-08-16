@@ -10,6 +10,8 @@ import '../../widgets/common/custom_app_bar.dart';
 import '../../widgets/common/crypto_price_card.dart';
 import '../../widgets/common/wallet_balance_card.dart';
 import '../../widgets/common/quick_action_button.dart';
+import '../../widgets/common/animated_background.dart';
+import '../../widgets/common/fingerprint_prompt_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,11 +54,21 @@ class _HomeScreenState extends State<HomeScreen>
     await Future.wait([
       walletProvider.loadWallets(),
       walletProvider.loadTransactions(),
-      cryptoProvider.loadPrices(),
+      cryptoProvider.loadCryptoPrices(),
     ]);
     
     // Start auto-refresh for crypto prices
     cryptoProvider.startAutoRefresh();
+    
+    // Show fingerprint prompt if available but not enabled
+    if (mounted) {
+      // Delay to ensure UI is ready
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          FingerprintPromptDialog.showIfAvailable(context);
+        }
+      });
+    }
   }
 
   @override
@@ -70,10 +82,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.backgroundGradient,
-        ),
+      body: AnimatedBackground(
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _animationController,
@@ -347,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 errorBuilder: (context, error, stackTrace) {
                                   return Center(
                                     child: Text(
-                                      user.initials,
+                                      authProvider.userInitials,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -372,15 +381,15 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(height: 16),
                     
                     // User Info
-                    Text(
-                      user?.fullName ?? 'User',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                                      Text(
+                    authProvider.userDisplayName,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
                     const SizedBox(height: 4),
-                    Text(
-                      '@${user?.username ?? 'username'}',
+                                          Text(
+                        '@${authProvider.user?.username ?? 'username'}',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppTheme.textSecondary,
                       ),
@@ -505,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen>
                         errorBuilder: (context, error, stackTrace) {
                           return Center(
                             child: Text(
-                              user.initials,
+                              authProvider.userInitials,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -518,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen>
                     )
                   : Center(
                       child: Text(
-                        user?.initials ?? 'U',
+                        authProvider.userInitials,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -541,13 +550,21 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   Text(
-                    user?.fullName ?? 'User',
+                    authProvider.userDisplayName,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
+            ),
+            
+            // Settings Icon
+            IconButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/settings');
+              },
+              icon: const Icon(Icons.settings_outlined, size: 28),
             ),
             
             // Notification Icon

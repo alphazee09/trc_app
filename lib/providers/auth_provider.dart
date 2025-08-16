@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../core/models/user_model.dart';
-import '../core/services/auth_service.dart';
-import '../core/services/biometric_service.dart';
+import '../core/services/bazari_api_service.dart';
+import '../core/services/token_manager.dart';
 
 class AuthProvider extends ChangeNotifier {
-  UserModel? _user;
+  User? _user;
   bool _isLoading = false;
   bool _isLoggedIn = false;
   String? _error;
   
-  UserModel? get user => _user;
+  User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _isLoggedIn;
   String? get error => _error;
@@ -18,219 +18,97 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     
     try {
-      _isLoggedIn = await AuthService.isLoggedIn();
+      _isLoggedIn = await TokenManager.isUserLoggedIn();
       if (_isLoggedIn) {
-        _user = await AuthService.getCurrentUser();
+        // Try to get user profile if token exists
+        final isAuthenticated = await BazariApiService.isAuthenticated();
+        if (isAuthenticated) {
+          _user = await BazariApiService.getUserProfile();
+          _isLoggedIn = true;
+        } else {
+          _isLoggedIn = false;
+          await TokenManager.clearAllTokens();
+        }
       }
     } catch (e) {
+      _isLoggedIn = false;
       _setError('Failed to initialize authentication');
     }
     
     _setLoading(false);
   }
-  
-  Future<bool> register({
-    required String username,
-    required String email,
-    required String password,
-    String? firstName,
-    String? lastName,
-    String? phone,
-  }) async {
-    _setLoading(true);
+
+  void setUser(Map<String, dynamic> userData) {
+    _user = User.fromJson(userData);
+    _isLoggedIn = true;
     _clearError();
-    
-    try {
-      final result = await AuthService.register(
-        username: username,
-        email: email,
-        password: password,
-        firstName: firstName,
-        lastName: lastName,
-        phone: phone,
-      );
-      
-      if (result.success) {
-        _user = result.user;
-        _isLoggedIn = true;
-        _setLoading(false);
-        return true;
-      } else {
-        _setError(result.error ?? 'Registration failed');
-        return false;
-      }
-    } catch (e) {
-      _setError('Registration failed: ${e.toString()}');
-      return false;
-    }
+    notifyListeners();
   }
-  
-  Future<bool> login({
-    required String username,
-    required String password,
-  }) async {
-    _setLoading(true);
+
+  void setUserFromModel(User user) {
+    _user = user;
+    _isLoggedIn = true;
     _clearError();
-    
-    try {
-      final result = await AuthService.login(
-        username: username,
-        password: password,
-      );
-      
-      if (result.success) {
-        _user = result.user;
-        _isLoggedIn = true;
-        _setLoading(false);
-        return true;
-      } else {
-        _setError(result.error ?? 'Login failed');
-        return false;
-      }
-    } catch (e) {
-      _setError('Login failed: ${e.toString()}');
-      return false;
-    }
+    notifyListeners();
   }
-  
-  Future<bool> authenticateWithBiometric() async {
-    if (_user == null || !_user!.fingerprintEnabled) {
-      return false;
-    }
-    
-    _setLoading(true);
-    _clearError();
-    
-    try {
-      final result = await BiometricService.authenticate(
-        localizedReason: 'Authenticate to access your Alphazee09 wallet',
-      );
-      
-      if (result.success) {
-        _setLoading(false);
-        return true;
-      } else {
-        _setError(result.error ?? 'Biometric authentication failed');
-        return false;
-      }
-    } catch (e) {
-      _setError('Biometric authentication failed: ${e.toString()}');
-      return false;
-    }
-  }
-  
+
   Future<void> logout() async {
     _setLoading(true);
     
     try {
-      await AuthService.logout();
-      _user = null;
-      _isLoggedIn = false;
+      await BazariApiService.logout();
     } catch (e) {
-      _setError('Logout failed: ${e.toString()}');
+      // Continue with logout even if API call fails
     }
     
+    _user = null;
+    _isLoggedIn = false;
+    _clearError();
     _setLoading(false);
   }
-  
+
+  Future<void> refreshUserProfile() async {
+    try {
+      if (_isLoggedIn) {
+        _user = await BazariApiService.getUserProfile();
+        notifyListeners();
+      }
+    } catch (e) {
+      _setError('Failed to refresh user profile');
+    }
+  }
+
   Future<bool> updateProfile({
     String? firstName,
     String? lastName,
     String? phone,
-    String? profileImage,
     bool? fingerprintEnabled,
   }) async {
     _setLoading(true);
     _clearError();
     
     try {
-      final result = await AuthService.updateProfile(
+      final updatedUser = await BazariApiService.updateUserProfile(
         firstName: firstName,
         lastName: lastName,
         phone: phone,
-        profileImage: profileImage,
         fingerprintEnabled: fingerprintEnabled,
       );
       
-      if (result.success) {
-        _user = result.user;
-        _setLoading(false);
-        return true;
-      } else {
-        _setError(result.error ?? 'Profile update failed');
-        return false;
-      }
+      _user = updatedUser;
+      _setLoading(false);
+      return true;
     } catch (e) {
-      _setError('Profile update failed: ${e.toString()}');
+      _setError('Failed to update profile: $e');
       return false;
     }
   }
-  
-  Future<void> refreshProfile() async {
-    if (!_isLoggedIn) return;
-    
-    try {
-      final result = await AuthService.refreshProfile();
-      if (result.success) {
-        _user = result.user;
-        notifyListeners();
-      }
-    } catch (e) {
-      // Silently fail for refresh
-    }
-  }
-  
-  Future<bool> enableBiometric() async {
-    if (_user == null) return false;
-    
-    _setLoading(true);
-    _clearError();
-    
-    try {
-      final isAvailable = await BiometricService.isAvailable();
-      if (!isAvailable) {
-        _setError('Biometric authentication is not available on this device');
-        return false;
-      }
-      
-      final result = await BiometricService.authenticate(
-        localizedReason: 'Authenticate to enable biometric login',
-      );
-      
-      if (result.success) {
-        final updateResult = await updateProfile(fingerprintEnabled: true);
-        if (updateResult) {
-          await AuthService.setBiometricEnabled(true);
-          return true;
-        }
-      } else {
-        _setError(result.error ?? 'Biometric authentication failed');
-      }
-      
-      return false;
-    } catch (e) {
-      _setError('Failed to enable biometric authentication: ${e.toString()}');
-      return false;
-    }
-  }
-  
-  Future<bool> disableBiometric() async {
-    if (_user == null) return false;
-    
-    _setLoading(true);
-    _clearError();
-    
-    try {
-      final updateResult = await updateProfile(fingerprintEnabled: false);
-      if (updateResult) {
-        await AuthService.setBiometricEnabled(false);
-        return true;
-      }
-      return false;
-    } catch (e) {
-      _setError('Failed to disable biometric authentication: ${e.toString()}');
-      return false;
-    }
+
+  void clearData() {
+    _user = null;
+    _isLoggedIn = false;
+    _error = null;
+    notifyListeners();
   }
   
   void _setLoading(bool loading) {
@@ -246,11 +124,39 @@ class AuthProvider extends ChangeNotifier {
   
   void _clearError() {
     _error = null;
-    notifyListeners();
   }
-  
-  void clearError() {
-    _clearError();
+
+  // Helper getters for UI
+  String get userDisplayName {
+    if (_user != null) {
+      return _user!.fullName;
+    }
+    return 'User';
+  }
+
+  String get userInitials {
+    if (_user != null) {
+      if (_user!.firstName != null && _user!.lastName != null) {
+        return '${_user!.firstName![0]}${_user!.lastName![0]}'.toUpperCase();
+      } else if (_user!.firstName != null) {
+        return _user!.firstName![0].toUpperCase();
+      } else {
+        return _user!.username[0].toUpperCase();
+      }
+    }
+    return 'U';
+  }
+
+  bool get isFingerprintEnabled {
+    return _user?.fingerprintEnabled ?? false;
+  }
+
+  bool get isVerified {
+    return _user?.isVerified ?? false;
+  }
+
+  bool get isBlocked {
+    return _user?.isBlocked ?? false;
   }
 }
 
